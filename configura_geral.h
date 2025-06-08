@@ -28,7 +28,7 @@
 
 #define WIFI_SSID "ELCIO J"
 #define WIFI_PASS "elc10jun10r"
-#define MQTT_BROKER_IP "192.168.1.102"
+#define MQTT_BROKER_IP "192.168.1.105"
 #define MQTT_BROKER_PORT 1883
 #define TOPICO "pico/PING"
 #define INTERVALO_PING_MS 5000
