@@ -25,23 +25,29 @@
 
 #define INTERVALO_PING_MS 5000  // Intervalo entre envios de "PING" (modificável)
 
+// Declarações externas de funções usadas neste módulo
 extern void funcao_wifi_nucleo1(void);
 extern void espera_usb();
 extern void tratar_ip_binario(uint32_t ip_bin);
 extern void tratar_mensagem(MensagemWiFi msg);
+
+// Inicialização de hardware e núcleo 1
 void inicia_hardware();
 void inicia_core1();
+
+// Manipulação de FIFO e fila de mensagens
 void verificar_fifo(void);
 void tratar_fila(void);
 void inicializar_mqtt_se_preciso(void);
 void enviar_ping_periodico(void);
 
+// Estruturas e variáveis globais
 FilaCircular fila_wifi;
 absolute_time_t proximo_envio;
-
 char mensagem_str[50];
 bool ip_recebido = false;
 
+// Função principal
 int main() {
     inicia_hardware();
     inicia_core1();
@@ -58,12 +64,15 @@ int main() {
 }
 
 /*******************************************************************/
+
+// Verifica se há dados no FIFO e trata pacotes recebidos
 void verificar_fifo(void) {
-    if (!multicore_fifo_rvalid()) return;
+    if (!multicore_fifo_rvalid()) return; // Nenhum dado disponível
 
     uint32_t pacote = multicore_fifo_pop_blocking();
     uint16_t tentativa = pacote >> 16;
 
+    // Se for pacote de IP recebido
     if (tentativa == 0xFFFE) {
         uint32_t ip_bin = multicore_fifo_pop_blocking();
         tratar_ip_binario(ip_bin);
@@ -73,29 +82,37 @@ void verificar_fifo(void) {
 
     uint16_t status = pacote & 0xFFFF;
 
+    // Validação de status
     if (status > 2 && tentativa != 0x9999) {
         snprintf(mensagem_str, sizeof(mensagem_str),
                  "Status inválido: %u (tentativa %u)", status, tentativa);
+
+        // Feedback visual e log
         ssd1306_draw_utf8_multiline(buffer_oled, 0, 0, "Status inválido.");
         render_on_display(buffer_oled, &area);
         sleep_ms(3000);
         oled_clear(buffer_oled, &area);
         render_on_display(buffer_oled, &area);
+
         printf("%s\n", mensagem_str);
         return;
     }
 
+    // Insere a mensagem na fila, se possível
     MensagemWiFi msg = {.tentativa = tentativa, .status = status};
     if (!fila_inserir(&fila_wifi, msg)) {
+        // Fila cheia - feedback visual e log
         ssd1306_draw_utf8_multiline(buffer_oled, 0, 0, "Fila cheia. Descartado.");
         render_on_display(buffer_oled, &area);
         sleep_ms(3000);
         oled_clear(buffer_oled, &area);
         render_on_display(buffer_oled, &area);
+
         printf("Fila cheia. Mensagem descartada.\n");
     }
 }
 
+// Retira mensagem da fila e a trata
 void tratar_fila(void) {
     MensagemWiFi msg_recebida;
     if (fila_remover(&fila_wifi, &msg_recebida)) {
@@ -103,6 +120,7 @@ void tratar_fila(void) {
     }
 }
 
+// Inicializa o cliente MQTT se necessário
 void inicializar_mqtt_se_preciso(void) {
     if (!mqtt_iniciado && ultimo_ip_bin != 0) {
         printf("[MQTT] Iniciando cliente MQTT...\n");
@@ -112,24 +130,28 @@ void inicializar_mqtt_se_preciso(void) {
     }
 }
 
+// Envia PING MQTT periodicamente
 void enviar_ping_periodico(void) {
     if (mqtt_iniciado && absolute_time_diff_us(get_absolute_time(), proximo_envio) <= 0) {
         publicar_mensagem_mqtt("PING");
-        printf("[MQTT] PING publicado\n");  // <-- Print adicionado
+        printf("[MQTT] PING publicado\n");
         ssd1306_draw_utf8_multiline(buffer_oled, 0, 0, "PING enviado...");
         render_on_display(buffer_oled, &area);
         proximo_envio = make_timeout_time_ms(INTERVALO_PING_MS);
     }
 }
 
+// Inicialização do hardware geral
 void inicia_hardware() {
     stdio_init_all();
     setup_init_oled();
     espera_usb();
+
     oled_clear(buffer_oled, &area);
     render_on_display(buffer_oled, &area);
 }
 
+// Inicializa o núcleo 1 e exibe status no OLED
 void inicia_core1() {
     ssd1306_draw_utf8_multiline(buffer_oled, 0, 0, "Núcleo 0");
     ssd1306_draw_utf8_multiline(buffer_oled, 0, 16, "Iniciando!");

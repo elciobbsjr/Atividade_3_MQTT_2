@@ -92,37 +92,43 @@ void tratar_mensagem(MensagemWiFi msg) {
             break;
     }
 
-    char linha_status[32];
-    snprintf(linha_status, sizeof(linha_status), "Status do Wi-Fi : %s", descricao);
+// Exibe status do Wi-Fi no display OLED e também no console
+char linha_status[32];
+snprintf(linha_status, sizeof(linha_status), "Status do Wi-Fi : %s", descricao);
 
-    ssd1306_draw_utf8_multiline(buffer_oled, 0, 0, linha_status);
-    render_on_display(buffer_oled, &area);
-    sleep_ms(3000);
-    oled_clear(buffer_oled, &area);
-    render_on_display(buffer_oled, &area);
+ssd1306_draw_utf8_multiline(buffer_oled, 0, 0, linha_status);
+render_on_display(buffer_oled, &area);
+sleep_ms(3000);  // Mantém a mensagem visível por 3 segundos
+oled_clear(buffer_oled, &area);
+render_on_display(buffer_oled, &area);
 
-    printf("[NÚCLEO 0] Status: %s\n", descricao);
+printf("[NÚCLEO 0] Status: %s\n", descricao);
 }
 
+// Trata o IP recebido em formato binário e exibe no OLED e console
 void tratar_ip_binario(uint32_t ip_bin) {
     char ip_str[20];
     uint8_t ip[4];
 
+    // Extrai cada octeto do IP
     ip[0] = (ip_bin >> 24) & 0xFF;
     ip[1] = (ip_bin >> 16) & 0xFF;
     ip[2] = (ip_bin >> 8) & 0xFF;
     ip[3] = ip_bin & 0xFF;
 
+    // Converte IP binário para string legível
     snprintf(ip_str, sizeof(ip_str), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 
+    // Atualiza display OLED com o IP
     oled_clear(buffer_oled, &area);
     ssd1306_draw_utf8_string(buffer_oled, 0, 0, ip_str);
     render_on_display(buffer_oled, &area);
 
     printf("[NÚCLEO 0] Endereço IP: %s\n", ip_str);
-    ultimo_ip_bin = ip_bin;
+    ultimo_ip_bin = ip_bin;  // Salva o último IP recebido
 }
 
+// Exibe o status atual do cliente MQTT no display OLED e console
 void exibir_status_mqtt(const char *texto) {
     ssd1306_draw_utf8_string(buffer_oled, 0, 16, "MQTT: ");
     ssd1306_draw_utf8_string(buffer_oled, 40, 16, texto);
